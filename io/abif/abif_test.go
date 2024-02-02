@@ -40,22 +40,39 @@ func Test_Roundtrip(t *testing.T) {
 		data: ABIF{
 			MajorVersion: 1,
 			MinorVersion: 4,
-			Data:         map[Tag]Data{},
+			Data:         map[Tag]Value{},
 		},
 	}, {
 		name: "parses data contained in dataoffset",
 		data: ABIF{
 			MajorVersion: 1,
 			MinorVersion: 4,
-			Data: map[Tag]Data{
+			Data: map[Tag]Value{
 				{
-					Name:   "asdf",
+					Name:   [4]byte{'a', 's', 'd', 'f'},
 					Number: 4,
 				}: {
 					Type:        Byte,
 					ElementSize: 1,
 					NumElements: 1,
-					Bytes:       []byte{0, 0, 0, 4},
+					Bytes:       []byte{4},
+				},
+			},
+		},
+	}, {
+		name: "parses data entry with multiple entries contained in a single dataoffset",
+		data: ABIF{
+			MajorVersion: 1,
+			MinorVersion: 4,
+			Data: map[Tag]Value{
+				{
+					Name:   [4]byte{'a', 's', 'd', 'f'},
+					Number: 4,
+				}: {
+					Type:        Byte,
+					ElementSize: 1,
+					NumElements: 4,
+					Bytes:       []byte{0, 1, 2, 3},
 				},
 			},
 		},
@@ -64,24 +81,24 @@ func Test_Roundtrip(t *testing.T) {
 		data: ABIF{
 			MajorVersion: 1,
 			MinorVersion: 4,
-			Data: map[Tag]Data{
+			Data: map[Tag]Value{
 				{
-					Name:   "asdf",
+					Name:   [4]byte{'a', 's', 'd', 'f'},
 					Number: 4,
 				}: {
 					Type:        Byte,
 					ElementSize: 1,
 					NumElements: 1,
-					Bytes:       []byte{0, 0, 0, 4},
+					Bytes:       []byte{4},
 				},
 				{
-					Name:   "jkl;",
+					Name:   [4]byte{'j', 'k', 'l', ';'},
 					Number: 5,
 				}: {
 					Type:        Byte,
 					ElementSize: 1,
 					NumElements: 1,
-					Bytes:       []byte{0, 0, 0, 2},
+					Bytes:       []byte{2},
 				},
 			},
 		},
@@ -90,9 +107,9 @@ func Test_Roundtrip(t *testing.T) {
 		data: ABIF{
 			MajorVersion: 1,
 			MinorVersion: 4,
-			Data: map[Tag]Data{
+			Data: map[Tag]Value{
 				{
-					Name:   "asdf",
+					Name:   [4]byte{'a', 's', 'd', 'f'},
 					Number: 4,
 				}: {
 					Type:        Double,
@@ -107,9 +124,9 @@ func Test_Roundtrip(t *testing.T) {
 		data: ABIF{
 			MajorVersion: 1,
 			MinorVersion: 4,
-			Data: map[Tag]Data{
+			Data: map[Tag]Value{
 				{
-					Name:   "asdf",
+					Name:   [4]byte{'a', 's', 'd', 'f'},
 					Number: 4,
 				}: {
 					Type:        Double,
@@ -118,7 +135,7 @@ func Test_Roundtrip(t *testing.T) {
 					Bytes:       []byte{0, 2, 8, 3, 1, 5, 4, 3},
 				},
 				{
-					Name:   "jkl;",
+					Name:   [4]byte{'j', 'k', 'l', ';'},
 					Number: 5,
 				}: {
 					Type:        Double,
@@ -138,7 +155,7 @@ func Test_Roundtrip(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tc.data, got); diff != "" {
-				t.Errorf("struct -> bytes -> struct roundtrip resulted in different structs (-want,+got): %v", diff)
+				t.Errorf("struct -> Bytes -> struct roundtrip resulted in different structs (-want,+got): %v", diff)
 			}
 		})
 	}

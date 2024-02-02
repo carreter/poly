@@ -13,14 +13,17 @@ const (
 	headerLength        = 128
 )
 
+// A Parser holds data necessary for ABIF parsing.
 type Parser struct {
 	file io.ReadSeeker
 }
 
+// NewParser creates a Parser from an io.ReadSeeker.
 func NewParser(file io.ReadSeeker) *Parser {
 	return &Parser{file: file}
 }
 
+// Parse decodes an ABIF struct from the parser's underlying io.ReadSeeker.
 func (p *Parser) Parse() (ABIF, error) {
 	res := ABIF{}
 
@@ -50,13 +53,13 @@ func (p *Parser) Parse() (ABIF, error) {
 		return res, err
 	}
 
-	// Skip remaining bytes in header.
+	// Skip remaining Bytes in header.
 	_, err = p.readBytes(emptyHeaderLength)
 	if err != nil {
 		return res, err
 	}
 
-	res.Data = make(map[Tag]Data)
+	res.Data = make(map[Tag]Value)
 
 	// Read in the directory entries.
 	for i := 0; i < int(rootDir.NumElements); i++ {
@@ -71,10 +74,10 @@ func (p *Parser) Parse() (ABIF, error) {
 		}
 
 		tag := Tag{
-			Name:   string(dir.Name[:]),
+			Name:   dir.Name,
 			Number: int(dir.Number),
 		}
-		data := Data{
+		data := Value{
 			Type:        dir.ElementType,
 			ElementSize: dir.ElementSize,
 			NumElements: dir.NumElements,
@@ -83,8 +86,13 @@ func (p *Parser) Parse() (ABIF, error) {
 		// Small data is contained in the DataOffset itself. Large data is pointed to
 		// by the offset.
 		if dir.DataSize <= 4 {
-			data.Bytes = make([]byte, 4)
-			binary.BigEndian.PutUint32(data.Bytes, uint32(dir.DataOffset))
+			data.Bytes = make([]byte, dir.DataSize)
+			for i := 0; i < len(data.Bytes); i++ {
+				// This magic incantation grabs the ith byte in dir.DataOffset, indexed from most to least significant.
+				// For example, if dir.DataOffset = 0o0123 and i = 2, b will be 0o2.
+				b := byte(dir.DataOffset >> int32(8*(4-i-1)))
+				data.Bytes[i] = b
+			}
 		} else {
 			err := p.seek(dir.DataOffset)
 			if err != nil {
@@ -108,7 +116,7 @@ func (p *Parser) readBytes(n int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	} else if nRead != n {
-		return nil, fmt.Errorf("could only read %v of %v desired bytes", nRead, n)
+		return nil, fmt.Errorf("could only read %v of %v desired Bytes", nRead, n)
 	}
 
 	return res, nil

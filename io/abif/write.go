@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 )
 
+// Bytes converts an ABIF to its binary representation.
 func (abif ABIF) Bytes() []byte {
 	buf := &bytes.Buffer{}
 
@@ -44,29 +45,38 @@ func (abif ABIF) Bytes() []byte {
 	}
 
 	// Write the directory entries.
-	dataOffset := headerLength + rootDir.DataSize
+	currDataOffset := headerLength + rootDir.DataSize
 	for _, tag := range tags {
 		data := abif.Data[tag]
-		offsetVal := dataOffset
-
-		// If the data itself fits in the DataOffset (an int32/4 bytes), put it there instead of the offset value.
-		if len(data.Bytes) <= 4 {
-			tmp := binary.BigEndian.Uint32(data.Bytes)
-			offsetVal = int32(tmp)
-		} else {
-			dataOffset += int32(len(data.Bytes))
-		}
 
 		newDirEntry := dirEntry{
-			Name:        [4]byte{tag.Name[0], tag.Name[1], tag.Name[2], tag.Name[3]},
+			Name:        tag.Name,
 			Number:      int32(tag.Number),
 			ElementType: data.Type,
 			ElementSize: data.ElementSize,
 			NumElements: data.NumElements,
 			DataSize:    int32(len(data.Bytes)),
-			DataOffset:  offsetVal,
 			DataHandle:  0,
 		}
+
+		// If the data itself fits in the DataOffset (an int32/4 Bytes), put it there. Otherwise,
+		// write the current data offset and then increment the offset by the length of the data.
+		if len(data.Bytes) <= 4 {
+			// Pad with zeros on the right.
+			paddedBytes := data.Bytes
+			for i := 0; i < 4-len(data.Bytes); i++ {
+				paddedBytes = append(paddedBytes, 0)
+			}
+
+			err := binary.Read(bytes.NewReader(paddedBytes), binary.BigEndian, &(newDirEntry.DataOffset))
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			newDirEntry.DataOffset = currDataOffset
+			currDataOffset += int32(data.DataSize())
+		}
+
 		err := binary.Write(buf, binary.BigEndian, newDirEntry)
 		if err != nil {
 			panic(err)
@@ -76,7 +86,7 @@ func (abif ABIF) Bytes() []byte {
 	// Write the data.
 	for _, tag := range tags {
 		data := abif.Data[tag]
-		if int(data.NumElements)*int(data.ElementSize) > 4 {
+		if data.DataSize() > 4 {
 			buf.Write(data.Bytes)
 		}
 	}
